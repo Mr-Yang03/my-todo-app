@@ -20,15 +20,23 @@ const Label = styled.label`
 `;
 
 const StyledTextArea = styled.textarea<{ hasError?: boolean }>`
-  width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
   border: 1px solid ${(props) => (props.hasError ? '#ef4444' : '#d1d5db')};
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  line-height: 1.5;
   font-family: inherit;
   resize: vertical;
-  min-height: 100px;
+  min-height: 120px;
   transition: all 0.2s;
+  background-color: #fff;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+
+  &:focus {
+    outline: none;
 
   &:focus {
     outline: none;

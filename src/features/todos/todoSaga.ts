@@ -3,6 +3,9 @@ import { PayloadAction } from '@reduxjs/toolkit';
 import { todoApi } from '../../services/api';
 import { Todo, TodoFormData } from '../../types';
 import {
+  fetchAllTodosRequest,
+  fetchAllTodosSuccess,
+  fetchAllTodosFailure,
   fetchTodosRequest,
   fetchTodosSuccess,
   fetchTodosFailure,
@@ -21,6 +24,22 @@ import {
 } from './todoSlice';
 
 // Worker Sagas
+function* fetchAllTodosSaga(
+  action: PayloadAction<{ userId?: string }>
+): Generator<any, void, any> {
+  try {
+    const { userId } = action.payload;
+    const todos: Todo[] = yield call(todoApi.getAllTodos, userId);
+    yield put(fetchAllTodosSuccess(todos));
+  } catch (error) {
+    yield put(
+      fetchAllTodosFailure(
+        error instanceof Error ? error.message : 'Failed to fetch todos'
+      )
+    );
+  }
+}
+
 function* fetchTodosSaga(
   action: PayloadAction<{ page: number; search?: string }>
 ): Generator<any, void, any> {
@@ -104,6 +123,10 @@ function* toggleTodoSaga(
 }
 
 // Watcher Sagas
+function* watchFetchAllTodos() {
+  yield takeLatest(fetchAllTodosRequest.type, fetchAllTodosSaga);
+}
+
 function* watchFetchTodos() {
   yield takeLatest(fetchTodosRequest.type, fetchTodosSaga);
 }
@@ -127,6 +150,7 @@ function* watchToggleTodo() {
 // Root Saga
 export default function* rootSaga() {
   yield all([
+    watchFetchAllTodos(),
     watchFetchTodos(),
     watchCreateTodo(),
     watchUpdateTodo(),

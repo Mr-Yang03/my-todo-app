@@ -3,6 +3,7 @@ import styled from '@emotion/styled';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/Button';
 import { useTranslation } from 'react-i18next';
+import { Link, useLocation } from 'react-router-dom';
 
 const LayoutContainer = styled.div`
   min-height: 100vh;
@@ -23,11 +24,43 @@ const NavContent = styled.div`
   align-items: center;
 `;
 
-const Logo = styled.h1`
+const NavLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+`;
+
+const Logo = styled(Link)`
   font-size: 1.5rem;
   font-weight: 700;
   color: #3b82f6;
   margin: 0;
+  text-decoration: none;
+
+  &:hover {
+    color: #2563eb;
+  }
+`;
+
+const NavLinks = styled.div`
+  display: flex;
+  gap: 1rem;
+`;
+
+const NavLink = styled(Link)<{ $active: boolean }>`
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s;
+  background-color: ${(props) => (props.$active ? '#dbeafe' : 'transparent')};
+  color: ${(props) => (props.$active ? '#1e40af' : '#6b7280')};
+
+  &:hover {
+    background-color: ${(props) => (props.$active ? '#dbeafe' : '#f3f4f6')};
+    color: ${(props) => (props.$active ? '#1e40af' : '#111827')};
+  }
 `;
 
 const NavActions = styled.div`
@@ -65,17 +98,39 @@ interface MainLayoutProps {
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
   const { t, i18n } = useTranslation();
+  const location = useLocation();
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'en' ? 'vi' : 'en';
     i18n.changeLanguage(newLang);
   };
 
+  // Check if current path matches the route (including nested modal routes)
+  const isActiveRoute = (path: string) => {
+    if (path === '/') {
+      return location.pathname === '/' || location.pathname.startsWith('/task/');
+    }
+    return location.pathname.startsWith(path);
+  };
+
   return (
     <LayoutContainer>
       <Navbar>
         <NavContent>
-          <Logo>{t('app.title')}</Logo>
+          <NavLeft>
+            <Logo to="/">{t('app.title')}</Logo>
+            <NavLinks>
+              <NavLink to="/" $active={isActiveRoute('/')}>
+                📋 All Tasks
+              </NavLink>
+              <NavLink to="/pending" $active={isActiveRoute('/pending')}>
+                ⏳ Pending
+              </NavLink>
+              <NavLink to="/completed" $active={isActiveRoute('/completed')}>
+                ✅ Completed
+              </NavLink>
+            </NavLinks>
+          </NavLeft>
           <NavActions>
             <LangButton onClick={toggleLanguage}>
               {i18n.language === 'en' ? '🇻🇳 Tiếng Việt' : '🇺🇸 English'}

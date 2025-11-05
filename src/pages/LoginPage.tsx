@@ -72,7 +72,7 @@ export const LoginPage: React.FC = () => {
   const handleSubmit = async (data: LoginCredentials) => {
     try {
       await login(data);
-      navigate('/');
+      navigate('/tasks/all');
     } catch (err) {
       // Error is handled by context
     }
@@ -110,14 +110,6 @@ export const LoginPage: React.FC = () => {
             </Button>
           </FormContainer>
         </FormWrapper>
-
-        <InfoBox>
-          <strong>Demo Credentials:</strong>
-          <br />
-          Username: admin | Password: admin123
-          <br />
-          Username: user | Password: user123
-        </InfoBox>
       </LoginCard>
     </LoginContainer>
   );

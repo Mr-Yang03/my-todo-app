@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { RootState } from '../store';
 import {
   fetchAllTodosRequest,
@@ -81,7 +81,6 @@ const TodoCard = styled.div<{ completed?: boolean }>`
   border-radius: 0.5rem;
   padding: 1.5rem;
   transition: all 0.2s;
-  opacity: ${(props) => (props.completed ? 0.7 : 1)};
 
   &:hover {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -96,12 +95,11 @@ const TodoHeader = styled.div`
   margin-bottom: 1rem;
 `;
 
-const TodoTitle = styled.h3<{ completed?: boolean }>`
+const TodoTitle = styled.h3`
   font-size: 1.25rem;
   font-weight: 600;
   color: #111827;
   margin: 0;
-  text-decoration: ${(props) => (props.completed ? 'line-through' : 'none')};
 `;
 
 const TodoDescription = styled.p`
@@ -130,13 +128,13 @@ const TodoActions = styled.div`
   gap: 0.5rem;
 `;
 
-const StatusBadge = styled.span<{ completed?: boolean }>`
+const StatusBadge = styled.span`
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 500;
-  background-color: ${(props) => (props.completed ? '#d1fae5' : '#fef3c7')};
-  color: ${(props) => (props.completed ? '#065f46' : '#92400e')};
+  background-color: #fef3c7;
+  color: #92400e;
 `;
 
 const EmptyState = styled.div`
@@ -188,7 +186,7 @@ const CheckboxLabel = styled.label`
   }
 `;
 
-export default function HomePage() {
+export default function PendingTodosPage() {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -207,12 +205,12 @@ export default function HomePage() {
   const { todos: allTodos, loading } = useSelector((state: RootState) => state.todos);
 
   // Detect modal state from URL
-  const isCreateModalOpen = location.pathname === '/task/create';
-  const isEditModalOpen = location.pathname.startsWith('/task/') && location.pathname.endsWith('/edit');
-  const isDeleteModalOpen = location.pathname.startsWith('/task/') && location.pathname.endsWith('/delete');
+  const isCreateModalOpen = location.pathname === '/pending/task/create';
+  const isEditModalOpen = location.pathname.match(/^\/pending\/task\/[^\/]+\/edit$/);
+  const isDeleteModalOpen = location.pathname.match(/^\/pending\/task\/[^\/]+\/delete$/);
   
   // Get taskId from URL if editing or deleting
-  const taskIdMatch = location.pathname.match(/\/task\/([^\/]+)\/(edit|delete)/);
+  const taskIdMatch = location.pathname.match(/\/pending\/task\/([^\/]+)\/(edit|delete)/);
   const taskId = taskIdMatch ? taskIdMatch[1] : null;
   
   const selectedTodo = taskId ? allTodos.find(todo => todo.id === taskId) || null : null;
@@ -231,31 +229,34 @@ export default function HomePage() {
     }
   }, [debouncedSearch, params.search, updateParams]);
 
-  // Step 1: Apply search filter (client-side)
+  // Step 1: Filter pending todos (client-side, vì JSON Server không filter boolean tốt)
+  const pendingTodos = allTodos.filter((todo) => !todo.completed);
+
+  // Step 2: Apply search filter (client-side, vì JSON Server v1 không hỗ trợ _like)
   const filteredTodos = debouncedSearch.trim()
-    ? allTodos.filter(
+    ? pendingTodos.filter(
         (todo) =>
           todo.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
           todo.description.toLowerCase().includes(debouncedSearch.toLowerCase())
       )
-    : allTodos;
+    : pendingTodos;
 
-  // Step 2: Pagination (cuối cùng)
+  // Step 3: Pagination (cuối cùng)
   const itemsPerPage = 10;
   const totalPages = Math.ceil(filteredTodos.length / itemsPerPage);
   const startIndex = (params.page - 1) * itemsPerPage;
   const paginatedTodos = filteredTodos.slice(startIndex, startIndex + itemsPerPage);
 
   const handleCreateTodo = () => {
-    navigate('/task/create');
+    navigate('/pending/task/create');
   };
 
   const handleEditTodo = (todo: Todo) => {
-    navigate(`/task/${todo.id}/edit`);
+    navigate(`/pending/task/${todo.id}/edit`);
   };
 
   const handleDeleteClick = (todoId: string) => {
-    navigate(`/task/${todoId}/delete`);
+    navigate(`/pending/task/${todoId}/delete`);
   };
 
   const handleDeleteConfirm = () => {
@@ -268,7 +269,7 @@ export default function HomePage() {
         }
       }, 100);
     }
-    navigate('/');
+    navigate('/pending');
   };
 
   const handleToggleTodo = (todo: Todo) => {
@@ -293,7 +294,7 @@ export default function HomePage() {
         dispatch(fetchAllTodosRequest({ userId: user.id }));
       }
     }, 100);
-    navigate('/');
+    navigate('/pending');
   };
 
   const handlePageChange = (page: number) => {
@@ -311,7 +312,7 @@ export default function HomePage() {
   return (
     <TodoContainer>
       <Header>
-        <Title>{t('todos.title')}</Title>
+        <Title>⏳ Pending Tasks</Title>
         <SearchContainer>
           <SearchInput
             type="text"
@@ -329,19 +330,17 @@ export default function HomePage() {
         </LoadingSpinner>
       ) : paginatedTodos.length === 0 ? (
         <EmptyState>
-          <h3>{t('todos.noTodos')}</h3>
-          <p>Click "{t('todos.addNew')}" to create your first todo</p>
+          <h3>No pending tasks found</h3>
+          <p>Click "{t('todos.addNew')}" to create a new task</p>
         </EmptyState>
       ) : (
         <>
           <TodoGrid>
             {paginatedTodos.map((todo) => (
-              <TodoCard key={todo.id} completed={todo.completed}>
+              <TodoCard key={todo.id}>
                 <TodoHeader>
-                  <TodoTitle completed={todo.completed}>{todo.title}</TodoTitle>
-                  <StatusBadge completed={todo.completed}>
-                    {todo.completed ? t('todos.completed') : t('todos.pending')}
-                  </StatusBadge>
+                  <TodoTitle>{todo.title}</TodoTitle>
+                  <StatusBadge>{t('todos.pending')}</StatusBadge>
                 </TodoHeader>
                 <TodoDescription>{todo.description}</TodoDescription>
                 <TodoFooter>
@@ -354,10 +353,7 @@ export default function HomePage() {
                     <span>{t('todos.completed')}</span>
                   </CheckboxLabel>
                   <TodoActions>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleEditTodo(todo)}
-                    >
+                    <Button variant="secondary" onClick={() => handleEditTodo(todo)}>
                       {t('todos.edit')}
                     </Button>
                     <Button
@@ -386,8 +382,8 @@ export default function HomePage() {
       )}
 
       <Modal
-        isOpen={isCreateModalOpen || isEditModalOpen}
-        onClose={() => navigate('/')}
+        isOpen={isCreateModalOpen || isEditModalOpen ? true : false}
+        onClose={() => navigate('/pending')}
         title={isEditModalOpen ? t('todos.editTodo') : t('todos.createTodo')}
       >
         <FormWrapper<TodoFormData>
@@ -408,7 +404,7 @@ export default function HomePage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/pending')}
             >
               {t('todos.cancel')}
             </Button>
@@ -418,11 +414,11 @@ export default function HomePage() {
       </Modal>
 
       <ConfirmDialog
-        isOpen={isDeleteModalOpen}
+        isOpen={isDeleteModalOpen ? true : false}
         title={t('todos.deleteTodo')}
         message={t('todos.confirmDelete')}
         onConfirm={handleDeleteConfirm}
-        onCancel={() => navigate('/')}
+        onCancel={() => navigate('/pending')}
         confirmText={t('todos.delete')}
         cancelText={t('todos.cancel')}
       />

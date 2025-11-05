@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { RootState } from '../store';
 import {
   fetchAllTodosRequest,
-  createTodoRequest,
   updateTodoRequest,
   deleteTodoRequest,
   toggleTodoRequest,
@@ -188,7 +187,7 @@ const CheckboxLabel = styled.label`
   }
 `;
 
-export default function HomePage() {
+export default function CompletedTodosPage() {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -207,12 +206,12 @@ export default function HomePage() {
   const { todos: allTodos, loading } = useSelector((state: RootState) => state.todos);
 
   // Detect modal state from URL
-  const isCreateModalOpen = location.pathname === '/task/create';
-  const isEditModalOpen = location.pathname.startsWith('/task/') && location.pathname.endsWith('/edit');
-  const isDeleteModalOpen = location.pathname.startsWith('/task/') && location.pathname.endsWith('/delete');
+  const isCreateModalOpen = location.pathname === '/completed/task/create';
+  const isEditModalOpen = location.pathname.match(/^\/completed\/task\/[^\/]+\/edit$/);
+  const isDeleteModalOpen = location.pathname.match(/^\/completed\/task\/[^\/]+\/delete$/);
   
   // Get taskId from URL if editing or deleting
-  const taskIdMatch = location.pathname.match(/\/task\/([^\/]+)\/(edit|delete)/);
+  const taskIdMatch = location.pathname.match(/\/completed\/task\/([^\/]+)\/(edit|delete)/);
   const taskId = taskIdMatch ? taskIdMatch[1] : null;
   
   const selectedTodo = taskId ? allTodos.find(todo => todo.id === taskId) || null : null;
@@ -231,31 +230,30 @@ export default function HomePage() {
     }
   }, [debouncedSearch, params.search, updateParams]);
 
-  // Step 1: Apply search filter (client-side)
+  // Step 1: Filter completed todos (client-side, vì JSON Server không filter boolean tốt)
+  const completedTodos = allTodos.filter((todo) => todo.completed);
+
+  // Step 2: Apply search filter (client-side, vì JSON Server v1 không hỗ trợ _like)
   const filteredTodos = debouncedSearch.trim()
-    ? allTodos.filter(
+    ? completedTodos.filter(
         (todo) =>
           todo.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
           todo.description.toLowerCase().includes(debouncedSearch.toLowerCase())
       )
-    : allTodos;
+    : completedTodos;
 
-  // Step 2: Pagination (cuối cùng)
+  // Step 3: Pagination (cuối cùng)
   const itemsPerPage = 10;
   const totalPages = Math.ceil(filteredTodos.length / itemsPerPage);
   const startIndex = (params.page - 1) * itemsPerPage;
   const paginatedTodos = filteredTodos.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleCreateTodo = () => {
-    navigate('/task/create');
-  };
-
   const handleEditTodo = (todo: Todo) => {
-    navigate(`/task/${todo.id}/edit`);
+    navigate(`/completed/task/${todo.id}/edit`);
   };
 
   const handleDeleteClick = (todoId: string) => {
-    navigate(`/task/${todoId}/delete`);
+    navigate(`/completed/task/${todoId}/delete`);
   };
 
   const handleDeleteConfirm = () => {
@@ -268,7 +266,7 @@ export default function HomePage() {
         }
       }, 100);
     }
-    navigate('/');
+    navigate('/completed');
   };
 
   const handleToggleTodo = (todo: Todo) => {
@@ -284,16 +282,14 @@ export default function HomePage() {
   const handleSubmit = (data: TodoFormData) => {
     if (isEditModalOpen && selectedTodo) {
       dispatch(updateTodoRequest({ id: selectedTodo.id, data }));
-    } else {
-      dispatch(createTodoRequest(data));
+      // Refetch after update
+      setTimeout(() => {
+        if (user) {
+          dispatch(fetchAllTodosRequest({ userId: user.id }));
+        }
+      }, 100);
     }
-    // Refetch after create/update
-    setTimeout(() => {
-      if (user) {
-        dispatch(fetchAllTodosRequest({ userId: user.id }));
-      }
-    }, 100);
-    navigate('/');
+    navigate('/completed');
   };
 
   const handlePageChange = (page: number) => {
@@ -311,7 +307,7 @@ export default function HomePage() {
   return (
     <TodoContainer>
       <Header>
-        <Title>{t('todos.title')}</Title>
+        <Title>✅ Completed Tasks</Title>
         <SearchContainer>
           <SearchInput
             type="text"
@@ -319,7 +315,6 @@ export default function HomePage() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
-          <Button onClick={handleCreateTodo}>{t('todos.addNew')}</Button>
         </SearchContainer>
       </Header>
 
@@ -329,8 +324,8 @@ export default function HomePage() {
         </LoadingSpinner>
       ) : paginatedTodos.length === 0 ? (
         <EmptyState>
-          <h3>{t('todos.noTodos')}</h3>
-          <p>Click "{t('todos.addNew')}" to create your first todo</p>
+          <h3>No completed tasks found</h3>
+          <p>Completed tasks will appear here</p>
         </EmptyState>
       ) : (
         <>
@@ -340,7 +335,7 @@ export default function HomePage() {
                 <TodoHeader>
                   <TodoTitle completed={todo.completed}>{todo.title}</TodoTitle>
                   <StatusBadge completed={todo.completed}>
-                    {todo.completed ? t('todos.completed') : t('todos.pending')}
+                    {t('todos.completed')}
                   </StatusBadge>
                 </TodoHeader>
                 <TodoDescription>{todo.description}</TodoDescription>
@@ -354,10 +349,7 @@ export default function HomePage() {
                     <span>{t('todos.completed')}</span>
                   </CheckboxLabel>
                   <TodoActions>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleEditTodo(todo)}
-                    >
+                    <Button variant="secondary" onClick={() => handleEditTodo(todo)}>
                       {t('todos.edit')}
                     </Button>
                     <Button
@@ -386,9 +378,9 @@ export default function HomePage() {
       )}
 
       <Modal
-        isOpen={isCreateModalOpen || isEditModalOpen}
-        onClose={() => navigate('/')}
-        title={isEditModalOpen ? t('todos.editTodo') : t('todos.createTodo')}
+        isOpen={isEditModalOpen ? true : false}
+        onClose={() => navigate('/completed')}
+        title={t('todos.editTodo')}
       >
         <FormWrapper<TodoFormData>
           onSubmit={handleSubmit}
@@ -408,7 +400,7 @@ export default function HomePage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/completed')}
             >
               {t('todos.cancel')}
             </Button>
@@ -418,11 +410,11 @@ export default function HomePage() {
       </Modal>
 
       <ConfirmDialog
-        isOpen={isDeleteModalOpen}
+        isOpen={isDeleteModalOpen ? true : false}
         title={t('todos.deleteTodo')}
         message={t('todos.confirmDelete')}
         onConfirm={handleDeleteConfirm}
-        onCancel={() => navigate('/')}
+        onCancel={() => navigate('/completed')}
         confirmText={t('todos.delete')}
         cancelText={t('todos.cancel')}
       />

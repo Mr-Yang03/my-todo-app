@@ -23,7 +23,21 @@ const todoSlice = createSlice({
   name: 'todos',
   initialState,
   reducers: {
-    // Fetch todos
+    // Fetch all todos by userId
+    fetchAllTodosRequest: (state, action: PayloadAction<{ userId?: string }>) => {
+      state.loading = true;
+      state.error = null;
+    },
+    fetchAllTodosSuccess: (state, action: PayloadAction<Todo[]>) => {
+      state.loading = false;
+      state.todos = action.payload;
+    },
+    fetchAllTodosFailure: (state, action: PayloadAction<string>) => {
+      state.loading = false;
+      state.error = action.payload;
+    },
+
+    // Fetch todos (old, for compatibility)
     fetchTodosRequest: (
       state,
       action: PayloadAction<{ page: number; search?: string }>
@@ -126,6 +140,9 @@ const todoSlice = createSlice({
 });
 
 export const {
+  fetchAllTodosRequest,
+  fetchAllTodosSuccess,
+  fetchAllTodosFailure,
   fetchTodosRequest,
   fetchTodosSuccess,
   fetchTodosFailure,
