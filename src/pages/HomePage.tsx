@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { RootState } from '../store';
 import {
   fetchAllTodosRequest,
@@ -191,6 +192,8 @@ export default function HomePage() {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [params, updateParams] = useSearchParams({
     page: 1,
@@ -200,16 +203,19 @@ export default function HomePage() {
   const [searchInput, setSearchInput] = useState(params.search);
   const debouncedSearch = useDebounce(searchInput, 500);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{
-    isOpen: boolean;
-    todoId: string | null;
-  }>({ isOpen: false, todoId: null });
-
   // Get todos from Redux state
   const { todos: allTodos, loading } = useSelector((state: RootState) => state.todos);
+
+  // Detect modal state from URL
+  const isCreateModalOpen = location.pathname === '/task/create';
+  const isEditModalOpen = location.pathname.startsWith('/task/') && location.pathname.endsWith('/edit');
+  const isDeleteModalOpen = location.pathname.startsWith('/task/') && location.pathname.endsWith('/delete');
+  
+  // Get taskId from URL if editing or deleting
+  const taskIdMatch = location.pathname.match(/\/task\/([^\/]+)\/(edit|delete)/);
+  const taskId = taskIdMatch ? taskIdMatch[1] : null;
+  
+  const selectedTodo = taskId ? allTodos.find(todo => todo.id === taskId) || null : null;
 
   // Fetch todos filtered by userId at server level using Redux saga
   useEffect(() => {
@@ -241,24 +247,20 @@ export default function HomePage() {
   const paginatedTodos = filteredTodos.slice(startIndex, startIndex + itemsPerPage);
 
   const handleCreateTodo = () => {
-    setIsEditMode(false);
-    setSelectedTodo(null);
-    setIsModalOpen(true);
+    navigate('/task/create');
   };
 
   const handleEditTodo = (todo: Todo) => {
-    setIsEditMode(true);
-    setSelectedTodo(todo);
-    setIsModalOpen(true);
+    navigate(`/task/${todo.id}/edit`);
   };
 
   const handleDeleteClick = (todoId: string) => {
-    setDeleteConfirm({ isOpen: true, todoId });
+    navigate(`/task/${todoId}/delete`);
   };
 
   const handleDeleteConfirm = () => {
-    if (deleteConfirm.todoId) {
-      dispatch(deleteTodoRequest(deleteConfirm.todoId));
+    if (taskId) {
+      dispatch(deleteTodoRequest(taskId));
       // Refetch after delete
       setTimeout(() => {
         if (user) {
@@ -266,7 +268,7 @@ export default function HomePage() {
         }
       }, 100);
     }
-    setDeleteConfirm({ isOpen: false, todoId: null });
+    navigate('/');
   };
 
   const handleToggleTodo = (todo: Todo) => {
@@ -280,7 +282,7 @@ export default function HomePage() {
   };
 
   const handleSubmit = (data: TodoFormData) => {
-    if (isEditMode && selectedTodo) {
+    if (isEditModalOpen && selectedTodo) {
       dispatch(updateTodoRequest({ id: selectedTodo.id, data }));
     } else {
       dispatch(createTodoRequest(data));
@@ -291,7 +293,7 @@ export default function HomePage() {
         dispatch(fetchAllTodosRequest({ userId: user.id }));
       }
     }, 100);
-    setIsModalOpen(false);
+    navigate('/');
   };
 
   const handlePageChange = (page: number) => {
@@ -384,9 +386,9 @@ export default function HomePage() {
       )}
 
       <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={isEditMode ? t('todos.editTodo') : t('todos.createTodo')}
+        isOpen={isCreateModalOpen || isEditModalOpen}
+        onClose={() => navigate('/')}
+        title={isEditModalOpen ? t('todos.editTodo') : t('todos.createTodo')}
       >
         <FormWrapper<TodoFormData>
           onSubmit={handleSubmit}
@@ -406,7 +408,7 @@ export default function HomePage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => navigate('/')}
             >
               {t('todos.cancel')}
             </Button>
@@ -416,11 +418,11 @@ export default function HomePage() {
       </Modal>
 
       <ConfirmDialog
-        isOpen={deleteConfirm.isOpen}
+        isOpen={isDeleteModalOpen}
         title={t('todos.deleteTodo')}
         message={t('todos.confirmDelete')}
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteConfirm({ isOpen: false, todoId: null })}
+        onCancel={() => navigate('/')}
         confirmText={t('todos.delete')}
         cancelText={t('todos.cancel')}
       />

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { RootState } from '../store';
 import {
   fetchAllTodosRequest,
@@ -189,6 +190,8 @@ export default function PendingTodosPage() {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [params, updateParams] = useSearchParams({
     page: 1,
@@ -198,16 +201,19 @@ export default function PendingTodosPage() {
   const [searchInput, setSearchInput] = useState(params.search);
   const debouncedSearch = useDebounce(searchInput, 500);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{
-    isOpen: boolean;
-    todoId: string | null;
-  }>({ isOpen: false, todoId: null });
-
   // Get todos from Redux state
   const { todos: allTodos, loading } = useSelector((state: RootState) => state.todos);
+
+  // Detect modal state from URL
+  const isCreateModalOpen = location.pathname === '/pending/task/create';
+  const isEditModalOpen = location.pathname.match(/^\/pending\/task\/[^\/]+\/edit$/);
+  const isDeleteModalOpen = location.pathname.match(/^\/pending\/task\/[^\/]+\/delete$/);
+  
+  // Get taskId from URL if editing or deleting
+  const taskIdMatch = location.pathname.match(/\/pending\/task\/([^\/]+)\/(edit|delete)/);
+  const taskId = taskIdMatch ? taskIdMatch[1] : null;
+  
+  const selectedTodo = taskId ? allTodos.find(todo => todo.id === taskId) || null : null;
 
   // Fetch todos filtered by userId at server level using Redux saga
   useEffect(() => {
@@ -242,24 +248,20 @@ export default function PendingTodosPage() {
   const paginatedTodos = filteredTodos.slice(startIndex, startIndex + itemsPerPage);
 
   const handleCreateTodo = () => {
-    setIsEditMode(false);
-    setSelectedTodo(null);
-    setIsModalOpen(true);
+    navigate('/pending/task/create');
   };
 
   const handleEditTodo = (todo: Todo) => {
-    setIsEditMode(true);
-    setSelectedTodo(todo);
-    setIsModalOpen(true);
+    navigate(`/pending/task/${todo.id}/edit`);
   };
 
   const handleDeleteClick = (todoId: string) => {
-    setDeleteConfirm({ isOpen: true, todoId });
+    navigate(`/pending/task/${todoId}/delete`);
   };
 
   const handleDeleteConfirm = () => {
-    if (deleteConfirm.todoId) {
-      dispatch(deleteTodoRequest(deleteConfirm.todoId));
+    if (taskId) {
+      dispatch(deleteTodoRequest(taskId));
       // Refetch after delete
       setTimeout(() => {
         if (user) {
@@ -267,7 +269,7 @@ export default function PendingTodosPage() {
         }
       }, 100);
     }
-    setDeleteConfirm({ isOpen: false, todoId: null });
+    navigate('/pending');
   };
 
   const handleToggleTodo = (todo: Todo) => {
@@ -281,7 +283,7 @@ export default function PendingTodosPage() {
   };
 
   const handleSubmit = (data: TodoFormData) => {
-    if (isEditMode && selectedTodo) {
+    if (isEditModalOpen && selectedTodo) {
       dispatch(updateTodoRequest({ id: selectedTodo.id, data }));
     } else {
       dispatch(createTodoRequest(data));
@@ -292,7 +294,7 @@ export default function PendingTodosPage() {
         dispatch(fetchAllTodosRequest({ userId: user.id }));
       }
     }, 100);
-    setIsModalOpen(false);
+    navigate('/pending');
   };
 
   const handlePageChange = (page: number) => {
@@ -380,9 +382,9 @@ export default function PendingTodosPage() {
       )}
 
       <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={isEditMode ? t('todos.editTodo') : t('todos.createTodo')}
+        isOpen={isCreateModalOpen || isEditModalOpen ? true : false}
+        onClose={() => navigate('/pending')}
+        title={isEditModalOpen ? t('todos.editTodo') : t('todos.createTodo')}
       >
         <FormWrapper<TodoFormData>
           onSubmit={handleSubmit}
@@ -402,7 +404,7 @@ export default function PendingTodosPage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => navigate('/pending')}
             >
               {t('todos.cancel')}
             </Button>
@@ -412,11 +414,11 @@ export default function PendingTodosPage() {
       </Modal>
 
       <ConfirmDialog
-        isOpen={deleteConfirm.isOpen}
+        isOpen={isDeleteModalOpen ? true : false}
         title={t('todos.deleteTodo')}
         message={t('todos.confirmDelete')}
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteConfirm({ isOpen: false, todoId: null })}
+        onCancel={() => navigate('/pending')}
         confirmText={t('todos.delete')}
         cancelText={t('todos.cancel')}
       />

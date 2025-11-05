@@ -19,6 +19,8 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            
+            {/* Main routes with modal support */}
             <Route
               path="/"
               element={
@@ -30,6 +32,37 @@ function App() {
               }
             />
             <Route
+              path="/task/create"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <HomePage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/task/:taskId/edit"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <HomePage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/task/:taskId/delete"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <HomePage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
               path="/completed"
               element={
                 <ProtectedRoute>
@@ -40,6 +73,37 @@ function App() {
               }
             />
             <Route
+              path="/completed/task/create"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <CompletedTodosPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/completed/task/:taskId/edit"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <CompletedTodosPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/completed/task/:taskId/delete"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <CompletedTodosPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
               path="/pending"
               element={
                 <ProtectedRoute>
@@ -49,6 +113,37 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/pending/task/create"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <PendingTodosPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pending/task/:taskId/edit"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <PendingTodosPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pending/task/:taskId/delete"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <PendingTodosPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

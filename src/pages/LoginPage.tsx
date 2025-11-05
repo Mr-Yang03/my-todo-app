@@ -72,7 +72,7 @@ export const LoginPage: React.FC = () => {
   const handleSubmit = async (data: LoginCredentials) => {
     try {
       await login(data);
-      navigate('/');
+      navigate('/tasks/all');
     } catch (err) {
       // Error is handled by context
     }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { RootState } from '../store';
 import {
   fetchAllTodosRequest,
@@ -190,6 +191,8 @@ export default function CompletedTodosPage() {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [params, updateParams] = useSearchParams({
     page: 1,
@@ -199,16 +202,19 @@ export default function CompletedTodosPage() {
   const [searchInput, setSearchInput] = useState(params.search);
   const debouncedSearch = useDebounce(searchInput, 500);
 
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<{
-    isOpen: boolean;
-    todoId: string | null;
-  }>({ isOpen: false, todoId: null });
-
   // Get todos from Redux state
   const { todos: allTodos, loading } = useSelector((state: RootState) => state.todos);
+
+  // Detect modal state from URL
+  const isCreateModalOpen = location.pathname === '/completed/task/create';
+  const isEditModalOpen = location.pathname.match(/^\/completed\/task\/[^\/]+\/edit$/);
+  const isDeleteModalOpen = location.pathname.match(/^\/completed\/task\/[^\/]+\/delete$/);
+  
+  // Get taskId from URL if editing or deleting
+  const taskIdMatch = location.pathname.match(/\/completed\/task\/([^\/]+)\/(edit|delete)/);
+  const taskId = taskIdMatch ? taskIdMatch[1] : null;
+  
+  const selectedTodo = taskId ? allTodos.find(todo => todo.id === taskId) || null : null;
 
   // Fetch todos filtered by userId at server level using Redux saga
   useEffect(() => {
@@ -243,18 +249,16 @@ export default function CompletedTodosPage() {
   const paginatedTodos = filteredTodos.slice(startIndex, startIndex + itemsPerPage);
 
   const handleEditTodo = (todo: Todo) => {
-    setIsEditMode(true);
-    setSelectedTodo(todo);
-    setIsModalOpen(true);
+    navigate(`/completed/task/${todo.id}/edit`);
   };
 
   const handleDeleteClick = (todoId: string) => {
-    setDeleteConfirm({ isOpen: true, todoId });
+    navigate(`/completed/task/${todoId}/delete`);
   };
 
   const handleDeleteConfirm = () => {
-    if (deleteConfirm.todoId) {
-      dispatch(deleteTodoRequest(deleteConfirm.todoId));
+    if (taskId) {
+      dispatch(deleteTodoRequest(taskId));
       // Refetch after delete
       setTimeout(() => {
         if (user) {
@@ -262,7 +266,7 @@ export default function CompletedTodosPage() {
         }
       }, 100);
     }
-    setDeleteConfirm({ isOpen: false, todoId: null });
+    navigate('/completed');
   };
 
   const handleToggleTodo = (todo: Todo) => {
@@ -276,7 +280,7 @@ export default function CompletedTodosPage() {
   };
 
   const handleSubmit = (data: TodoFormData) => {
-    if (isEditMode && selectedTodo) {
+    if (isEditModalOpen && selectedTodo) {
       dispatch(updateTodoRequest({ id: selectedTodo.id, data }));
       // Refetch after update
       setTimeout(() => {
@@ -285,7 +289,7 @@ export default function CompletedTodosPage() {
         }
       }, 100);
     }
-    setIsModalOpen(false);
+    navigate('/completed');
   };
 
   const handlePageChange = (page: number) => {
@@ -374,8 +378,8 @@ export default function CompletedTodosPage() {
       )}
 
       <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isEditModalOpen ? true : false}
+        onClose={() => navigate('/completed')}
         title={t('todos.editTodo')}
       >
         <FormWrapper<TodoFormData>
@@ -396,7 +400,7 @@ export default function CompletedTodosPage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => navigate('/completed')}
             >
               {t('todos.cancel')}
             </Button>
@@ -406,11 +410,11 @@ export default function CompletedTodosPage() {
       </Modal>
 
       <ConfirmDialog
-        isOpen={deleteConfirm.isOpen}
+        isOpen={isDeleteModalOpen ? true : false}
         title={t('todos.deleteTodo')}
         message={t('todos.confirmDelete')}
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteConfirm({ isOpen: false, todoId: null })}
+        onCancel={() => navigate('/completed')}
         confirmText={t('todos.delete')}
         cancelText={t('todos.cancel')}
       />

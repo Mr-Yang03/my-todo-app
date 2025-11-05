@@ -105,6 +105,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     i18n.changeLanguage(newLang);
   };
 
+  // Check if current path matches the route (including nested modal routes)
+  const isActiveRoute = (path: string) => {
+    if (path === '/') {
+      return location.pathname === '/' || location.pathname.startsWith('/task/');
+    }
+    return location.pathname.startsWith(path);
+  };
+
   return (
     <LayoutContainer>
       <Navbar>
@@ -112,13 +120,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           <NavLeft>
             <Logo to="/">{t('app.title')}</Logo>
             <NavLinks>
-              <NavLink to="/" $active={location.pathname === '/'}>
+              <NavLink to="/" $active={isActiveRoute('/')}>
                 📋 All Tasks
               </NavLink>
-              <NavLink to="/pending" $active={location.pathname === '/pending'}>
+              <NavLink to="/pending" $active={isActiveRoute('/pending')}>
                 ⏳ Pending
               </NavLink>
-              <NavLink to="/completed" $active={location.pathname === '/completed'}>
+              <NavLink to="/completed" $active={isActiveRoute('/completed')}>
                 ✅ Completed
               </NavLink>
             </NavLinks>
