@@ -6,6 +6,8 @@ import { AuthProvider } from './contexts/AuthContext';
 import { MainLayout } from './layouts/MainLayout';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import HomePage from './pages/HomePage';
+import CompletedTodosPage from './pages/CompletedTodosPage';
+import PendingTodosPage from './pages/PendingTodosPage';
 import { LoginPage } from './pages/LoginPage';
 import './utils/i18n';
 import './App.scss';
@@ -23,6 +25,26 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <HomePage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/completed"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <CompletedTodosPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pending"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <PendingTodosPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

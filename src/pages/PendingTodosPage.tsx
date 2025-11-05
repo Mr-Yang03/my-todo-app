@@ -3,7 +3,6 @@ import styled from '@emotion/styled';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store';
 import {
-  fetchTodosRequest,
   createTodoRequest,
   updateTodoRequest,
   deleteTodoRequest,
@@ -21,6 +20,7 @@ import { todoSchema } from '../utils/validationSchemas';
 import { useSearchParams } from '../hooks/useSearchParams';
 import { useDebounce } from '../hooks/useDebounce';
 import { useTranslation } from 'react-i18next';
+import { todoApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const TodoContainer = styled.div`
@@ -80,7 +80,6 @@ const TodoCard = styled.div<{ completed?: boolean }>`
   border-radius: 0.5rem;
   padding: 1.5rem;
   transition: all 0.2s;
-  opacity: ${(props) => (props.completed ? 0.7 : 1)};
 
   &:hover {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -95,12 +94,11 @@ const TodoHeader = styled.div`
   margin-bottom: 1rem;
 `;
 
-const TodoTitle = styled.h3<{ completed?: boolean }>`
+const TodoTitle = styled.h3`
   font-size: 1.25rem;
   font-weight: 600;
   color: #111827;
   margin: 0;
-  text-decoration: ${(props) => (props.completed ? 'line-through' : 'none')};
 `;
 
 const TodoDescription = styled.p`
@@ -129,13 +127,13 @@ const TodoActions = styled.div`
   gap: 0.5rem;
 `;
 
-const StatusBadge = styled.span<{ completed?: boolean }>`
+const StatusBadge = styled.span`
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 500;
-  background-color: ${(props) => (props.completed ? '#d1fae5' : '#fef3c7')};
-  color: ${(props) => (props.completed ? '#065f46' : '#92400e')};
+  background-color: #fef3c7;
+  color: #92400e;
 `;
 
 const EmptyState = styled.div`
@@ -187,11 +185,8 @@ const CheckboxLabel = styled.label`
   }
 `;
 
-export default function HomePage() {
+export default function PendingTodosPage() {
   const dispatch = useDispatch();
-  const { todos, loading, currentPage, totalPages } = useSelector(
-    (state: RootState) => state.todos
-  );
   const { t } = useTranslation();
   const { user } = useAuth();
 
@@ -211,18 +206,32 @@ export default function HomePage() {
     todoId: string | null;
   }>({ isOpen: false, todoId: null });
 
-  // Filter todos by current user
-  const userTodos = user ? todos.filter(todo => todo.userId === user.id) : todos;
+  const [allTodos, setAllTodos] = useState<Todo[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Fetch todos when page or search changes
+  // Fetch all todos once
   useEffect(() => {
-    dispatch(
-      fetchTodosRequest({
-        page: params.page,
-        search: params.search,
-      })
-    );
-  }, [dispatch, params.page, params.search]);
+    const fetchAllTodos = async () => {
+      setLoading(true);
+      try {
+        const todos = await todoApi.getAllTodos();
+        setAllTodos(todos);
+      } catch (error) {
+        console.error('Error fetching todos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAllTodos();
+  }, []);
+
+  // Refetch when todos change in Redux (after create/update/delete)
+  const { todos: reduxTodos } = useSelector((state: RootState) => state.todos);
+  useEffect(() => {
+    if (reduxTodos.length > 0) {
+      setAllTodos(reduxTodos);
+    }
+  }, [reduxTodos]);
 
   // Update URL when search changes
   useEffect(() => {
@@ -230,6 +239,27 @@ export default function HomePage() {
       updateParams({ search: debouncedSearch, page: 1 });
     }
   }, [debouncedSearch, params.search, updateParams]);
+
+  // Filter by userId first
+  const userTodos = user ? allTodos.filter(todo => todo.userId === user.id) : allTodos;
+  
+  // Then filter pending todos
+  const pendingTodos = userTodos.filter((todo) => !todo.completed);
+
+  // Then apply search filter
+  const filteredTodos = debouncedSearch.trim()
+    ? pendingTodos.filter(
+        (todo) =>
+          todo.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+          todo.description.toLowerCase().includes(debouncedSearch.toLowerCase())
+      )
+    : pendingTodos;
+
+  // Pagination
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(filteredTodos.length / itemsPerPage);
+  const startIndex = (params.page - 1) * itemsPerPage;
+  const paginatedTodos = filteredTodos.slice(startIndex, startIndex + itemsPerPage);
 
   const handleCreateTodo = () => {
     setIsEditMode(false);
@@ -282,7 +312,7 @@ export default function HomePage() {
   return (
     <TodoContainer>
       <Header>
-        <Title>{t('todos.title')}</Title>
+        <Title>⏳ Pending Tasks</Title>
         <SearchContainer>
           <SearchInput
             type="text"
@@ -294,25 +324,23 @@ export default function HomePage() {
         </SearchContainer>
       </Header>
 
-      {loading && userTodos.length === 0 ? (
+      {loading && allTodos.length === 0 ? (
         <LoadingSpinner>
           <Spinner />
         </LoadingSpinner>
-      ) : userTodos.length === 0 ? (
+      ) : paginatedTodos.length === 0 ? (
         <EmptyState>
-          <h3>{t('todos.noTodos')}</h3>
-          <p>Click "{t('todos.addNew')}" to create your first todo</p>
+          <h3>No pending tasks found</h3>
+          <p>Click "{t('todos.addNew')}" to create a new task</p>
         </EmptyState>
       ) : (
         <>
           <TodoGrid>
-            {userTodos.map((todo) => (
-              <TodoCard key={todo.id} completed={todo.completed}>
+            {paginatedTodos.map((todo) => (
+              <TodoCard key={todo.id}>
                 <TodoHeader>
-                  <TodoTitle completed={todo.completed}>{todo.title}</TodoTitle>
-                  <StatusBadge completed={todo.completed}>
-                    {todo.completed ? t('todos.completed') : t('todos.pending')}
-                  </StatusBadge>
+                  <TodoTitle>{todo.title}</TodoTitle>
+                  <StatusBadge>{t('todos.pending')}</StatusBadge>
                 </TodoHeader>
                 <TodoDescription>{todo.description}</TodoDescription>
                 <TodoFooter>
@@ -325,10 +353,7 @@ export default function HomePage() {
                     <span>{t('todos.completed')}</span>
                   </CheckboxLabel>
                   <TodoActions>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleEditTodo(todo)}
-                    >
+                    <Button variant="secondary" onClick={() => handleEditTodo(todo)}>
                       {t('todos.edit')}
                     </Button>
                     <Button
@@ -348,7 +373,7 @@ export default function HomePage() {
 
           {totalPages > 1 && (
             <Pagination
-              currentPage={currentPage}
+              currentPage={params.page}
               totalPages={totalPages}
               onPageChange={handlePageChange}
             />

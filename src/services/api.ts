@@ -21,22 +21,44 @@ api.interceptors.request.use((config) => {
 
 // Todo APIs
 export const todoApi = {
-  getTodos: async (page: number = 1, limit: number = 10, search?: string) => {
+  getAllTodos: async () => {
+    // Fetch all todos without pagination
     const params: any = {
-      _page: page,
-      _limit: limit,
       _sort: 'createdAt',
       _order: 'desc',
     };
     
-    if (search) {
-      params.q = search;
-    }
+    const response = await api.get<Todo[]>('/todos', { params });
+    return response.data;
+  },
+
+  getTodos: async (page: number = 1, limit: number = 10, search?: string) => {
+    // Fetch all todos first (JSON Server v1 doesn't support _like)
+    const params: any = {
+      _sort: 'createdAt',
+      _order: 'desc',
+    };
     
     const response = await api.get<Todo[]>('/todos', { params });
-    const total = response.headers['x-total-count'];
+    let filteredData = response.data;
+    
+    // Filter by search term on client side
+    if (search && search.trim()) {
+      const searchLower = search.toLowerCase();
+      filteredData = response.data.filter((todo) =>
+        todo.title.toLowerCase().includes(searchLower) ||
+        todo.description.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Manual pagination
+    const total = filteredData.length;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedData = filteredData.slice(startIndex, endIndex);
+    
     return {
-      data: response.data,
+      data: paginatedData,
       totalPages: Math.ceil(total / limit),
     };
   },
@@ -47,8 +69,13 @@ export const todoApi = {
   },
 
   createTodo: async (todo: TodoFormData) => {
+    // Get current user from localStorage
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    
     const newTodo = {
       ...todo,
+      userId: user?.id || '1', // Default to user 1 if not found
       completed: false,
       createdAt: new Date().toISOString(),
     };
