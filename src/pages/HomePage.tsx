@@ -3,7 +3,7 @@ import styled from '@emotion/styled';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store';
 import {
-  fetchTodosRequest,
+  fetchAllTodosRequest,
   createTodoRequest,
   updateTodoRequest,
   deleteTodoRequest,
@@ -189,9 +189,6 @@ const CheckboxLabel = styled.label`
 
 export default function HomePage() {
   const dispatch = useDispatch();
-  const { todos, loading, currentPage, totalPages } = useSelector(
-    (state: RootState) => state.todos
-  );
   const { t } = useTranslation();
   const { user } = useAuth();
 
@@ -211,18 +208,15 @@ export default function HomePage() {
     todoId: string | null;
   }>({ isOpen: false, todoId: null });
 
-  // Filter todos by current user
-  const userTodos = user ? todos.filter(todo => todo.userId === user.id) : todos;
+  // Get todos from Redux state
+  const { todos: allTodos, loading } = useSelector((state: RootState) => state.todos);
 
-  // Fetch todos when page or search changes
+  // Fetch todos filtered by userId at server level using Redux saga
   useEffect(() => {
-    dispatch(
-      fetchTodosRequest({
-        page: params.page,
-        search: params.search,
-      })
-    );
-  }, [dispatch, params.page, params.search]);
+    if (user) {
+      dispatch(fetchAllTodosRequest({ userId: user.id }));
+    }
+  }, [user, dispatch]);
 
   // Update URL when search changes
   useEffect(() => {
@@ -230,6 +224,21 @@ export default function HomePage() {
       updateParams({ search: debouncedSearch, page: 1 });
     }
   }, [debouncedSearch, params.search, updateParams]);
+
+  // Step 1: Apply search filter (client-side)
+  const filteredTodos = debouncedSearch.trim()
+    ? allTodos.filter(
+        (todo) =>
+          todo.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+          todo.description.toLowerCase().includes(debouncedSearch.toLowerCase())
+      )
+    : allTodos;
+
+  // Step 2: Pagination (cuối cùng)
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(filteredTodos.length / itemsPerPage);
+  const startIndex = (params.page - 1) * itemsPerPage;
+  const paginatedTodos = filteredTodos.slice(startIndex, startIndex + itemsPerPage);
 
   const handleCreateTodo = () => {
     setIsEditMode(false);
@@ -250,12 +259,24 @@ export default function HomePage() {
   const handleDeleteConfirm = () => {
     if (deleteConfirm.todoId) {
       dispatch(deleteTodoRequest(deleteConfirm.todoId));
+      // Refetch after delete
+      setTimeout(() => {
+        if (user) {
+          dispatch(fetchAllTodosRequest({ userId: user.id }));
+        }
+      }, 100);
     }
     setDeleteConfirm({ isOpen: false, todoId: null });
   };
 
   const handleToggleTodo = (todo: Todo) => {
     dispatch(toggleTodoRequest({ id: todo.id, completed: !todo.completed }));
+    // Refetch after toggle
+    setTimeout(() => {
+      if (user) {
+        dispatch(fetchAllTodosRequest({ userId: user.id }));
+      }
+    }, 100);
   };
 
   const handleSubmit = (data: TodoFormData) => {
@@ -264,6 +285,12 @@ export default function HomePage() {
     } else {
       dispatch(createTodoRequest(data));
     }
+    // Refetch after create/update
+    setTimeout(() => {
+      if (user) {
+        dispatch(fetchAllTodosRequest({ userId: user.id }));
+      }
+    }, 100);
     setIsModalOpen(false);
   };
 
@@ -294,11 +321,11 @@ export default function HomePage() {
         </SearchContainer>
       </Header>
 
-      {loading && userTodos.length === 0 ? (
+      {loading && allTodos.length === 0 ? (
         <LoadingSpinner>
           <Spinner />
         </LoadingSpinner>
-      ) : userTodos.length === 0 ? (
+      ) : paginatedTodos.length === 0 ? (
         <EmptyState>
           <h3>{t('todos.noTodos')}</h3>
           <p>Click "{t('todos.addNew')}" to create your first todo</p>
@@ -306,7 +333,7 @@ export default function HomePage() {
       ) : (
         <>
           <TodoGrid>
-            {userTodos.map((todo) => (
+            {paginatedTodos.map((todo) => (
               <TodoCard key={todo.id} completed={todo.completed}>
                 <TodoHeader>
                   <TodoTitle completed={todo.completed}>{todo.title}</TodoTitle>
@@ -348,7 +375,7 @@ export default function HomePage() {
 
           {totalPages > 1 && (
             <Pagination
-              currentPage={currentPage}
+              currentPage={params.page}
               totalPages={totalPages}
               onPageChange={handlePageChange}
             />

@@ -3,6 +3,7 @@ import styled from '@emotion/styled';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store';
 import {
+  fetchAllTodosRequest,
   createTodoRequest,
   updateTodoRequest,
   deleteTodoRequest,
@@ -20,7 +21,6 @@ import { todoSchema } from '../utils/validationSchemas';
 import { useSearchParams } from '../hooks/useSearchParams';
 import { useDebounce } from '../hooks/useDebounce';
 import { useTranslation } from 'react-i18next';
-import { todoApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const TodoContainer = styled.div`
@@ -206,32 +206,15 @@ export default function PendingTodosPage() {
     todoId: string | null;
   }>({ isOpen: false, todoId: null });
 
-  const [allTodos, setAllTodos] = useState<Todo[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Get todos from Redux state
+  const { todos: allTodos, loading } = useSelector((state: RootState) => state.todos);
 
-  // Fetch all todos once
+  // Fetch todos filtered by userId at server level using Redux saga
   useEffect(() => {
-    const fetchAllTodos = async () => {
-      setLoading(true);
-      try {
-        const todos = await todoApi.getAllTodos();
-        setAllTodos(todos);
-      } catch (error) {
-        console.error('Error fetching todos:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAllTodos();
-  }, []);
-
-  // Refetch when todos change in Redux (after create/update/delete)
-  const { todos: reduxTodos } = useSelector((state: RootState) => state.todos);
-  useEffect(() => {
-    if (reduxTodos.length > 0) {
-      setAllTodos(reduxTodos);
+    if (user) {
+      dispatch(fetchAllTodosRequest({ userId: user.id }));
     }
-  }, [reduxTodos]);
+  }, [user, dispatch]);
 
   // Update URL when search changes
   useEffect(() => {
@@ -240,13 +223,10 @@ export default function PendingTodosPage() {
     }
   }, [debouncedSearch, params.search, updateParams]);
 
-  // Filter by userId first
-  const userTodos = user ? allTodos.filter(todo => todo.userId === user.id) : allTodos;
-  
-  // Then filter pending todos
-  const pendingTodos = userTodos.filter((todo) => !todo.completed);
+  // Step 1: Filter pending todos (client-side, vì JSON Server không filter boolean tốt)
+  const pendingTodos = allTodos.filter((todo) => !todo.completed);
 
-  // Then apply search filter
+  // Step 2: Apply search filter (client-side, vì JSON Server v1 không hỗ trợ _like)
   const filteredTodos = debouncedSearch.trim()
     ? pendingTodos.filter(
         (todo) =>
@@ -255,7 +235,7 @@ export default function PendingTodosPage() {
       )
     : pendingTodos;
 
-  // Pagination
+  // Step 3: Pagination (cuối cùng)
   const itemsPerPage = 10;
   const totalPages = Math.ceil(filteredTodos.length / itemsPerPage);
   const startIndex = (params.page - 1) * itemsPerPage;
@@ -280,12 +260,24 @@ export default function PendingTodosPage() {
   const handleDeleteConfirm = () => {
     if (deleteConfirm.todoId) {
       dispatch(deleteTodoRequest(deleteConfirm.todoId));
+      // Refetch after delete
+      setTimeout(() => {
+        if (user) {
+          dispatch(fetchAllTodosRequest({ userId: user.id }));
+        }
+      }, 100);
     }
     setDeleteConfirm({ isOpen: false, todoId: null });
   };
 
   const handleToggleTodo = (todo: Todo) => {
     dispatch(toggleTodoRequest({ id: todo.id, completed: !todo.completed }));
+    // Refetch after toggle
+    setTimeout(() => {
+      if (user) {
+        dispatch(fetchAllTodosRequest({ userId: user.id }));
+      }
+    }, 100);
   };
 
   const handleSubmit = (data: TodoFormData) => {
@@ -294,6 +286,12 @@ export default function PendingTodosPage() {
     } else {
       dispatch(createTodoRequest(data));
     }
+    // Refetch after create/update
+    setTimeout(() => {
+      if (user) {
+        dispatch(fetchAllTodosRequest({ userId: user.id }));
+      }
+    }, 100);
     setIsModalOpen(false);
   };
 

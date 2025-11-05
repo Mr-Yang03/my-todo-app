@@ -21,12 +21,17 @@ api.interceptors.request.use((config) => {
 
 // Todo APIs
 export const todoApi = {
-  getAllTodos: async () => {
-    // Fetch all todos without pagination
+  getAllTodos: async (userId?: string) => {
+    // Fetch todos filtered by userId at server level
     const params: any = {
       _sort: 'createdAt',
       _order: 'desc',
     };
+    
+    // Filter by userId at JSON Server level
+    if (userId) {
+      params.userId = userId;
+    }
     
     const response = await api.get<Todo[]>('/todos', { params });
     return response.data;
