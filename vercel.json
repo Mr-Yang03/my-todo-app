@@ -1,9 +1,0 @@
-{
-  "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "CI=false npm run build",
-  "framework": null,
-  "outputDirectory": "build",
-  "env": {
-    "NODE_VERSION": "22.x"
-  }
-}

@@ -67,11 +67,5 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
-  },
-  "engines": {
-    "node": "22.x"
-  },
-  "overrides": {
-    "ajv-keywords": "5.1.0"
   }
 }
