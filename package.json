@@ -69,7 +69,10 @@
     "concurrently": "^9.2.1"
   },
   "engines": {
-    "node": "22.x",
+    "node": "18.x",
     "npm": "9.x"
+  },
+  "resolutions": {
+    "ajv": "^8.12.0"
   }
 }
