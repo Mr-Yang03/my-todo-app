@@ -1,7 +1,10 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { store } from './store';
+import { queryClient } from './lib/queryClient';
 import { AuthProvider } from './contexts/AuthContext';
 import { MainLayout } from './layouts/MainLayout';
 import { ProtectedRoute } from './routes/ProtectedRoute';
@@ -15,9 +18,10 @@ import './App.scss';
 function App() {
   return (
     <Provider store={store}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
             <Route path="/login" element={<LoginPage />} />
             
             {/* Main routes with modal support */}
@@ -148,6 +152,8 @@ function App() {
           </Routes>
         </BrowserRouter>
       </AuthProvider>
+      {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
+      </QueryClientProvider>
     </Provider>
   );
 }

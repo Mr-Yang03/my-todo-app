@@ -1,14 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
-import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { RootState } from '../store';
-import {
-  fetchAllTodosRequest,
-  updateTodoRequest,
-  deleteTodoRequest,
-  toggleTodoRequest,
-} from '../features/todos/todoSlice';
+import { useTodos, useUpdateTodo, useDeleteTodo, useToggleTodo } from '../hooks/useTodoQueries';
 import { Todo, TodoFormData } from '../types';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -188,7 +181,6 @@ const CheckboxLabel = styled.label`
 `;
 
 export default function CompletedTodosPage() {
-  const dispatch = useDispatch();
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -202,8 +194,11 @@ export default function CompletedTodosPage() {
   const [searchInput, setSearchInput] = useState(params.search);
   const debouncedSearch = useDebounce(searchInput, 500);
 
-  // Get todos from Redux state
-  const { todos: allTodos, loading } = useSelector((state: RootState) => state.todos);
+  // React Query hooks
+  const { data: allTodos = [], isLoading: loading } = useTodos(user?.id);
+  const updateTodoMutation = useUpdateTodo();
+  const deleteTodoMutation = useDeleteTodo();
+  const toggleTodoMutation = useToggleTodo();
 
   // Detect modal state from URL
   const isCreateModalOpen = location.pathname === '/completed/task/create';
@@ -214,14 +209,7 @@ export default function CompletedTodosPage() {
   const taskIdMatch = location.pathname.match(/\/completed\/task\/([^\/]+)\/(edit|delete)/);
   const taskId = taskIdMatch ? taskIdMatch[1] : null;
   
-  const selectedTodo = taskId ? allTodos.find(todo => todo.id === taskId) || null : null;
-
-  // Fetch todos filtered by userId at server level using Redux saga
-  useEffect(() => {
-    if (user) {
-      dispatch(fetchAllTodosRequest({ userId: user.id }));
-    }
-  }, [user, dispatch]);
+  const selectedTodo = taskId ? allTodos.find((todo: Todo) => todo.id === taskId) || null : null;
 
   // Update URL when search changes
   useEffect(() => {
@@ -258,36 +246,18 @@ export default function CompletedTodosPage() {
 
   const handleDeleteConfirm = () => {
     if (taskId) {
-      dispatch(deleteTodoRequest(taskId));
-      // Refetch after delete
-      setTimeout(() => {
-        if (user) {
-          dispatch(fetchAllTodosRequest({ userId: user.id }));
-        }
-      }, 100);
+      deleteTodoMutation.mutate(taskId);
     }
     navigate('/completed');
   };
 
   const handleToggleTodo = (todo: Todo) => {
-    dispatch(toggleTodoRequest({ id: todo.id, completed: !todo.completed }));
-    // Refetch after toggle
-    setTimeout(() => {
-      if (user) {
-        dispatch(fetchAllTodosRequest({ userId: user.id }));
-      }
-    }, 100);
+    toggleTodoMutation.mutate({ id: todo.id, completed: !todo.completed });
   };
 
   const handleSubmit = (data: TodoFormData) => {
     if (isEditModalOpen && selectedTodo) {
-      dispatch(updateTodoRequest({ id: selectedTodo.id, data }));
-      // Refetch after update
-      setTimeout(() => {
-        if (user) {
-          dispatch(fetchAllTodosRequest({ userId: user.id }));
-        }
-      }, 100);
+      updateTodoMutation.mutate({ id: selectedTodo.id, data });
     }
     navigate('/completed');
   };
