@@ -1,15 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { RootState } from '../store';
-import {
-  fetchAllTodosRequest,
-  createTodoRequest,
-  updateTodoRequest,
-  deleteTodoRequest,
-  toggleTodoRequest,
-} from '../features/todos/todoSlice';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useTodos, useCreateTodo, useUpdateTodo, useDeleteTodo, useToggleTodo } from '../hooks/useTodoQueries';
 import { Todo, TodoFormData } from '../types';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -189,7 +181,6 @@ const CheckboxLabel = styled.label`
 `;
 
 export default function HomePage() {
-  const dispatch = useDispatch();
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -203,8 +194,12 @@ export default function HomePage() {
   const [searchInput, setSearchInput] = useState(params.search);
   const debouncedSearch = useDebounce(searchInput, 500);
 
-  // Get todos from Redux state
-  const { todos: allTodos, loading } = useSelector((state: RootState) => state.todos);
+  // React Query hooks
+  const { data: allTodos = [], isLoading: loading } = useTodos(user?.id);
+  const createTodoMutation = useCreateTodo();
+  const updateTodoMutation = useUpdateTodo();
+  const deleteTodoMutation = useDeleteTodo();
+  const toggleTodoMutation = useToggleTodo();
 
   // Detect modal state from URL
   const isCreateModalOpen = location.pathname === '/task/create';
@@ -215,14 +210,7 @@ export default function HomePage() {
   const taskIdMatch = location.pathname.match(/\/task\/([^\/]+)\/(edit|delete)/);
   const taskId = taskIdMatch ? taskIdMatch[1] : null;
   
-  const selectedTodo = taskId ? allTodos.find(todo => todo.id === taskId) || null : null;
-
-  // Fetch todos filtered by userId at server level using Redux saga
-  useEffect(() => {
-    if (user) {
-      dispatch(fetchAllTodosRequest({ userId: user.id }));
-    }
-  }, [user, dispatch]);
+  const selectedTodo = taskId ? allTodos.find((todo: Todo) => todo.id === taskId) || null : null;
 
   // Update URL when search changes
   useEffect(() => {
@@ -260,39 +248,26 @@ export default function HomePage() {
 
   const handleDeleteConfirm = () => {
     if (taskId) {
-      dispatch(deleteTodoRequest(taskId));
-      // Refetch after delete
-      setTimeout(() => {
-        if (user) {
-          dispatch(fetchAllTodosRequest({ userId: user.id }));
-        }
-      }, 100);
+      deleteTodoMutation.mutate(taskId);
     }
     navigate('/');
   };
 
   const handleToggleTodo = (todo: Todo) => {
-    dispatch(toggleTodoRequest({ id: todo.id, completed: !todo.completed }));
-    // Refetch after toggle
-    setTimeout(() => {
-      if (user) {
-        dispatch(fetchAllTodosRequest({ userId: user.id }));
-      }
-    }, 100);
+    toggleTodoMutation.mutate({ id: todo.id, completed: !todo.completed });
   };
 
   const handleSubmit = (data: TodoFormData) => {
     if (isEditModalOpen && selectedTodo) {
-      dispatch(updateTodoRequest({ id: selectedTodo.id, data }));
+      updateTodoMutation.mutate({ id: selectedTodo.id, data });
     } else {
-      dispatch(createTodoRequest(data));
+      // Add userId to new todo
+      const todoData: TodoFormData = {
+        ...data,
+        userId: user?.id || '',
+      };
+      createTodoMutation.mutate(todoData);
     }
-    // Refetch after create/update
-    setTimeout(() => {
-      if (user) {
-        dispatch(fetchAllTodosRequest({ userId: user.id }));
-      }
-    }, 100);
     navigate('/');
   };
 
