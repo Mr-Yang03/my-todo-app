@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { todoApi } from '../services/api';
 import { Todo, TodoFormData } from '../types';
+import { toastMessages } from '../utils/toastMessages';
 
 // Query keys
 export const todoKeys = {
@@ -27,8 +29,11 @@ export function useCreateTodo() {
   return useMutation({
     mutationFn: (data: TodoFormData) => todoApi.createTodo(data),
     onSuccess: () => {
-      // Invalidate and refetch todos
       queryClient.invalidateQueries({ queryKey: todoKeys.lists() });
+      toast.success(toastMessages.todo.created);
+    },
+    onError: (error: Error) => {
+      toast.error(toastMessages.todo.createError(error.message));
     },
   });
 }
@@ -41,8 +46,11 @@ export function useUpdateTodo() {
     mutationFn: ({ id, data }: { id: string; data: Partial<Todo> }) =>
       todoApi.updateTodo(id, data),
     onSuccess: () => {
-      // Invalidate and refetch todos
       queryClient.invalidateQueries({ queryKey: todoKeys.lists() });
+      toast.success(toastMessages.todo.updated);
+    },
+    onError: (error: Error) => {
+      toast.error(toastMessages.todo.updateError(error.message));
     },
   });
 }
@@ -54,8 +62,11 @@ export function useDeleteTodo() {
   return useMutation({
     mutationFn: (id: string) => todoApi.deleteTodo(id),
     onSuccess: () => {
-      // Invalidate and refetch todos
       queryClient.invalidateQueries({ queryKey: todoKeys.lists() });
+      toast.success(toastMessages.todo.deleted);
+    },
+    onError: (error: Error) => {
+      toast.error(toastMessages.todo.deleteError(error.message));
     },
   });
 }
@@ -67,9 +78,15 @@ export function useToggleTodo() {
   return useMutation({
     mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
       todoApi.toggleTodo(id, completed),
-    onSuccess: () => {
-      // Invalidate and refetch todos
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: todoKeys.lists() });
+      const message = data.completed 
+        ? toastMessages.todo.completed
+        : toastMessages.todo.pending;
+      toast.success(message);
+    },
+    onError: (error: Error) => {
+      toast.error(toastMessages.todo.toggleError(error.message));
     },
   });
 }

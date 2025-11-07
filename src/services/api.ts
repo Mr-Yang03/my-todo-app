@@ -1,5 +1,7 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import { Todo, LoginCredentials, User, TodoFormData } from '../types';
+import { toastMessages } from '../utils/toastMessages';
 
 const API_BASE_URL = 'http://localhost:3001';
 
@@ -18,6 +20,46 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Interceptor to handle errors globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      // Server responded with error status
+      const status = error.response.status;
+      const message = error.response.data?.message || error.message;
+      
+      switch (status) {
+        case 400:
+          toast.error(toastMessages.apiError[400](message));
+          break;
+        case 401:
+          toast.error(toastMessages.apiError[401]);
+          break;
+        case 403:
+          toast.error(toastMessages.apiError[403]);
+          break;
+        case 404:
+          toast.error(toastMessages.apiError[404]);
+          break;
+        case 500:
+          toast.error(toastMessages.apiError[500]);
+          break;
+        default:
+          toast.error(toastMessages.apiError.default(message));
+      }
+    } else if (error.request) {
+      // Request made but no response
+      toast.error(toastMessages.network.error);
+    } else {
+      // Something else happened
+      toast.error(toastMessages.apiError.default(error.message));
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 // Todo APIs
 export const todoApi = {

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import toast from 'react-hot-toast';
 import { User, LoginCredentials } from '../types';
 import { authApi } from '../services/api';
+import { toastMessages } from '../utils/toastMessages';
 
 interface AuthContextType {
   user: User | null;
@@ -33,8 +35,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setError(null);
       const { user } = await authApi.login(credentials);
       setUser(user);
+      toast.success(toastMessages.auth.loginSuccess(user.name));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      setError(errorMessage);
+      toast.error(toastMessages.auth.loginError(errorMessage));
       throw err;
     } finally {
       setIsLoading(false);
@@ -44,6 +49,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     authApi.logout();
     setUser(null);
+    toast.success(toastMessages.auth.logoutSuccess);
   };
 
   return (
