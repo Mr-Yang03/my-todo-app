@@ -13,6 +13,7 @@ import HomePage from './pages/HomePage';
 import CompletedTodosPage from './pages/CompletedTodosPage';
 import PendingTodosPage from './pages/PendingTodosPage';
 import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
 import './utils/i18n';
 import './App.scss';
 
@@ -24,6 +25,7 @@ function App() {
           <BrowserRouter>
             <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             
             {/* Main routes with modal support */}
             <Route

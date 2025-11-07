@@ -12,11 +12,13 @@ export function getBaseUrl(): string {
     return import.meta.env.VITE_APP_BASE_URL;
   }
   
-  // Development
+  if (typeof window !== 'undefined' && !import.meta.env.DEV) {
+    return `${window.location.protocol}//${window.location.host}`;
+  }
+  
   if (import.meta.env.DEV) {
     return 'http://localhost:3000';
   }
   
-  // Production - custom domain
   return 'https://todo.com';
 }

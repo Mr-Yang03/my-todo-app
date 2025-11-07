@@ -35,6 +35,13 @@ export interface LoginCredentials {
   password: string;
 }
 
+export interface RegisterCredentials {
+  username: string;
+  password: string;
+  email: string;
+  name: string;
+}
+
 export interface TodoFormData {
   title: string;
   description: string;

@@ -12,7 +12,6 @@ const api = axios.create({
   },
 });
 
-// Interceptor to add auth token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -21,12 +20,10 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor to handle errors globally
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      // Server responded with error status
       const status = error.response.status;
       const message = error.response.data?.message || error.message;
       
@@ -50,10 +47,8 @@ api.interceptors.response.use(
           toast.error(toastMessages.apiError.default(message));
       }
     } else if (error.request) {
-      // Request made but no response
       toast.error(toastMessages.network.error);
     } else {
-      // Something else happened
       toast.error(toastMessages.apiError.default(error.message));
     }
     
@@ -61,16 +56,13 @@ api.interceptors.response.use(
   }
 );
 
-// Todo APIs
 export const todoApi = {
   getAllTodos: async (userId?: string) => {
-    // Fetch todos filtered by userId at server level
     const params: any = {
       _sort: 'createdAt',
       _order: 'desc',
     };
     
-    // Filter by userId at JSON Server level
     if (userId) {
       params.userId = userId;
     }
@@ -80,7 +72,6 @@ export const todoApi = {
   },
 
   getTodos: async (page: number = 1, limit: number = 10, search?: string) => {
-    // Fetch all todos first (JSON Server v1 doesn't support _like)
     const params: any = {
       _sort: 'createdAt',
       _order: 'desc',
@@ -89,7 +80,6 @@ export const todoApi = {
     const response = await api.get<Todo[]>('/todos', { params });
     let filteredData = response.data;
     
-    // Filter by search term on client side
     if (search && search.trim()) {
       const searchLower = search.toLowerCase();
       filteredData = response.data.filter((todo) =>
@@ -98,7 +88,6 @@ export const todoApi = {
       );
     }
     
-    // Manual pagination
     const total = filteredData.length;
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
@@ -116,13 +105,12 @@ export const todoApi = {
   },
 
   createTodo: async (todo: TodoFormData) => {
-    // Get current user from localStorage
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : null;
     
     const newTodo = {
       ...todo,
-      userId: user?.id || '1', // Default to user 1 if not found
+      userId: user?.id || '1',
       completed: false,
       createdAt: new Date().toISOString(),
     };
@@ -145,10 +133,35 @@ export const todoApi = {
   },
 };
 
-// Auth APIs (Mock implementation)
 export const authApi = {
+  register: async (credentials: LoginCredentials & { email: string; name: string }) => {
+    const existingUsers = await api.get<User[]>('/users', {
+      params: {
+        username: credentials.username,
+      },
+    });
+
+    if (existingUsers.data.length > 0) {
+      throw new Error('Username already exists');
+    }
+
+    const newUser: Omit<User, 'id'> = {
+      username: credentials.username,
+      email: credentials.email,
+      name: credentials.name,
+    };
+
+    const response = await api.post<User>('/users', newUser);
+    const user = response.data;
+
+    const token = btoa(`${credentials.username}:${credentials.password}`);
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+
+    return { user, token };
+  },
+
   login: async (credentials: LoginCredentials) => {
-    // Simulate API call
     const response = await api.get<User[]>('/users', {
       params: {
         username: credentials.username,
@@ -157,8 +170,6 @@ export const authApi = {
 
     const user = response.data[0];
     if (user) {
-      // In a real app, you would verify password on backend
-      // For demo, we'll just return a mock token
       const token = btoa(`${credentials.username}:${credentials.password}`);
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
