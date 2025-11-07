@@ -4,7 +4,6 @@ import { todoApi } from '../services/api';
 import { Todo, TodoFormData } from '../types';
 import { toastMessages } from '../utils/toastMessages';
 
-// Query keys
 export const todoKeys = {
   all: ['todos'] as const,
   lists: () => [...todoKeys.all, 'list'] as const,
@@ -13,16 +12,22 @@ export const todoKeys = {
   detail: (id: string) => [...todoKeys.details(), id] as const,
 };
 
-// Fetch all todos for a user
 export function useTodos(userId?: string) {
   return useQuery({
     queryKey: todoKeys.list(userId),
     queryFn: () => todoApi.getAllTodos(userId),
-    enabled: !!userId, // Only run query if userId exists
+    enabled: !!userId,
   });
 }
 
-// Create todo mutation
+export function useTodo(id?: string) {
+  return useQuery({
+    queryKey: todoKeys.detail(id || ''),
+    queryFn: () => todoApi.getTodoById(id!),
+    enabled: !!id,
+  });
+}
+
 export function useCreateTodo() {
   const queryClient = useQueryClient();
 
@@ -38,7 +43,6 @@ export function useCreateTodo() {
   });
 }
 
-// Update todo mutation
 export function useUpdateTodo() {
   const queryClient = useQueryClient();
 
@@ -55,7 +59,6 @@ export function useUpdateTodo() {
   });
 }
 
-// Delete todo mutation
 export function useDeleteTodo() {
   const queryClient = useQueryClient();
 
@@ -71,7 +74,6 @@ export function useDeleteTodo() {
   });
 }
 
-// Toggle todo completion mutation
 export function useToggleTodo() {
   const queryClient = useQueryClient();
 

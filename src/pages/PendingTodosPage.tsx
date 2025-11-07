@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useTodos, useCreateTodo, useUpdateTodo, useDeleteTodo, useToggleTodo } from '../hooks/useTodoQueries';
+import { useTodos, useCreateTodo, useUpdateTodo, useDeleteTodo, useToggleTodo, useTodo } from '../hooks/useTodoQueries';
 import { Todo, TodoFormData } from '../types';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -192,35 +192,33 @@ export default function PendingTodosPage() {
   const [searchInput, setSearchInput] = useState(params.search);
   const debouncedSearch = useDebounce(searchInput, 500);
 
-  // React Query hooks
   const { data: allTodos = [], isLoading: loading } = useTodos(user?.id);
   const createTodoMutation = useCreateTodo();
   const updateTodoMutation = useUpdateTodo();
   const deleteTodoMutation = useDeleteTodo();
   const toggleTodoMutation = useToggleTodo();
 
-  // Detect modal state from URL
   const isCreateModalOpen = location.pathname === '/pending/task/create';
   const isEditModalOpen = location.pathname.match(/^\/pending\/task\/[^\/]+\/edit$/);
   const isDeleteModalOpen = location.pathname.match(/^\/pending\/task\/[^\/]+\/delete$/);
   
-  // Get taskId from URL if editing or deleting
   const taskIdMatch = location.pathname.match(/\/pending\/task\/([^\/]+)\/(edit|delete)/);
   const taskId = taskIdMatch ? taskIdMatch[1] : null;
   
-  const selectedTodo = taskId ? allTodos.find((todo: Todo) => todo.id === taskId) || null : null;
+  const { data: singleTodo } = useTodo(taskId || undefined);
+  
+  const selectedTodo = taskId 
+    ? (allTodos.find((todo: Todo) => todo.id === taskId) || singleTodo || null)
+    : null;
 
-  // Update URL when search changes
   useEffect(() => {
     if (debouncedSearch !== params.search) {
       updateParams({ search: debouncedSearch, page: 1 });
     }
   }, [debouncedSearch, params.search, updateParams]);
 
-  // Step 1: Filter pending todos (client-side, vì JSON Server không filter boolean tốt)
   const pendingTodos = allTodos.filter((todo) => !todo.completed);
 
-  // Step 2: Apply search filter (client-side, vì JSON Server v1 không hỗ trợ _like)
   const filteredTodos = debouncedSearch.trim()
     ? pendingTodos.filter(
         (todo) =>
@@ -229,7 +227,6 @@ export default function PendingTodosPage() {
       )
     : pendingTodos;
 
-  // Step 3: Pagination (cuối cùng)
   const itemsPerPage = 10;
   const totalPages = Math.ceil(filteredTodos.length / itemsPerPage);
   const startIndex = (params.page - 1) * itemsPerPage;
@@ -262,7 +259,6 @@ export default function PendingTodosPage() {
     if (isEditModalOpen && selectedTodo) {
       updateTodoMutation.mutate({ id: selectedTodo.id, data });
     } else {
-      // Add userId to new todo
       const todoData: TodoFormData = {
         ...data,
         userId: user?.id || '',
@@ -362,6 +358,7 @@ export default function PendingTodosPage() {
         title={isEditModalOpen ? t('todos.editTodo') : t('todos.createTodo')}
       >
         <FormWrapper<TodoFormData>
+          key={selectedTodo?.id || 'create'} // Force re-render when selectedTodo changes
           onSubmit={handleSubmit}
           defaultValues={
             selectedTodo

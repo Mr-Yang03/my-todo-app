@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useTodos, useCreateTodo, useUpdateTodo, useDeleteTodo, useToggleTodo } from '../hooks/useTodoQueries';
+import { useTodos, useCreateTodo, useUpdateTodo, useDeleteTodo, useToggleTodo, useTodo } from '../hooks/useTodoQueries';
 import { Todo, TodoFormData } from '../types';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -194,32 +194,31 @@ export default function HomePage() {
   const [searchInput, setSearchInput] = useState(params.search);
   const debouncedSearch = useDebounce(searchInput, 500);
 
-  // React Query hooks
   const { data: allTodos = [], isLoading: loading } = useTodos(user?.id);
   const createTodoMutation = useCreateTodo();
   const updateTodoMutation = useUpdateTodo();
   const deleteTodoMutation = useDeleteTodo();
   const toggleTodoMutation = useToggleTodo();
 
-  // Detect modal state from URL
   const isCreateModalOpen = location.pathname === '/task/create';
   const isEditModalOpen = location.pathname.startsWith('/task/') && location.pathname.endsWith('/edit');
   const isDeleteModalOpen = location.pathname.startsWith('/task/') && location.pathname.endsWith('/delete');
   
-  // Get taskId from URL if editing or deleting
   const taskIdMatch = location.pathname.match(/\/task\/([^\/]+)\/(edit|delete)/);
   const taskId = taskIdMatch ? taskIdMatch[1] : null;
   
-  const selectedTodo = taskId ? allTodos.find((todo: Todo) => todo.id === taskId) || null : null;
+  const { data: singleTodo } = useTodo(taskId || undefined);
+  
+  const selectedTodo = taskId 
+    ? (allTodos.find((todo: Todo) => todo.id === taskId) || singleTodo || null)
+    : null;
 
-  // Update URL when search changes
   useEffect(() => {
     if (debouncedSearch !== params.search) {
       updateParams({ search: debouncedSearch, page: 1 });
     }
   }, [debouncedSearch, params.search, updateParams]);
 
-  // Step 1: Apply search filter (client-side)
   const filteredTodos = debouncedSearch.trim()
     ? allTodos.filter(
         (todo) =>
@@ -228,7 +227,6 @@ export default function HomePage() {
       )
     : allTodos;
 
-  // Step 2: Pagination (cuối cùng)
   const itemsPerPage = 10;
   const totalPages = Math.ceil(filteredTodos.length / itemsPerPage);
   const startIndex = (params.page - 1) * itemsPerPage;
@@ -261,7 +259,6 @@ export default function HomePage() {
     if (isEditModalOpen && selectedTodo) {
       updateTodoMutation.mutate({ id: selectedTodo.id, data });
     } else {
-      // Add userId to new todo
       const todoData: TodoFormData = {
         ...data,
         userId: user?.id || '',
@@ -366,6 +363,7 @@ export default function HomePage() {
         title={isEditModalOpen ? t('todos.editTodo') : t('todos.createTodo')}
       >
         <FormWrapper<TodoFormData>
+          key={selectedTodo?.id || 'create'} // Force re-render when selectedTodo changes
           onSubmit={handleSubmit}
           defaultValues={
             selectedTodo
