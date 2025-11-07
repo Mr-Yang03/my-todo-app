@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import toast from 'react-hot-toast';
-import { User, LoginCredentials } from '../types';
+import { User, LoginCredentials, RegisterCredentials } from '../types';
 import { authApi } from '../services/api';
 import { toastMessages } from '../utils/toastMessages';
 
@@ -9,6 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
+  register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => void;
   error: string | null;
 }
@@ -46,6 +47,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const register = async (credentials: RegisterCredentials) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const { user } = await authApi.register(credentials);
+      setUser(user);
+      toast.success(`🎉 Welcome ${user.name}! Account created successfully.`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed';
+      setError(errorMessage);
+      toast.error(`❌ ${errorMessage}`);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     authApi.logout();
     setUser(null);
@@ -59,6 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isAuthenticated: !!user,
         isLoading,
         login,
+        register,
         logout,
         error,
       }}

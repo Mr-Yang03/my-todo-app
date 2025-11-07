@@ -5,26 +5,27 @@ import { FormWrapper } from '../components/FormWrapper';
 import { FormInput } from '../components/FormInput';
 import { FormPasswordInput } from '../components/FormPasswordInput';
 import { Button } from '../components/Button';
-import { LoginCredentials } from '../types';
-import { loginSchema } from '../utils/validationSchemas';
+import { RegisterCredentials } from '../types';
+import { registerSchema } from '../utils/validationSchemas';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-const LoginContainer = styled.div`
+const RegisterContainer = styled.div`
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem;
 `;
 
-const LoginCard = styled.div`
+const RegisterCard = styled.div`
   background: white;
   padding: 2rem;
   border-radius: 0.5rem;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 400px;
+  max-width: 450px;
 `;
 
 const Title = styled.h1`
@@ -56,16 +57,7 @@ const ErrorMessage = styled.div`
   margin-bottom: 1rem;
 `;
 
-const InfoBox = styled.div`
-  background-color: #dbeafe;
-  color: #1e40af;
-  padding: 0.75rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  margin-top: 1rem;
-`;
-
-const RegisterLink = styled.div`
+const LoginLink = styled.div`
   text-align: center;
   margin-top: 1.5rem;
   color: #6b7280;
@@ -82,56 +74,76 @@ const RegisterLink = styled.div`
   }
 `;
 
-export const LoginPage: React.FC = () => {
-  const { login, error, isLoading } = useAuth();
+export const RegisterPage: React.FC = () => {
+  const { register, error, isLoading } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const handleSubmit = async (data: LoginCredentials) => {
+  const handleSubmit = async (data: RegisterCredentials & { confirmPassword: string }) => {
     try {
-      await login(data);
-      navigate('/tasks/all');
+      const { confirmPassword, ...credentials } = data;
+      await register(credentials);
+      navigate('/login');
     } catch (err) {
       // Error is handled by context
     }
   };
 
   return (
-    <LoginContainer>
-      <LoginCard>
-        <Title>{t('auth.welcome')}</Title>
-        <Subtitle>{t('auth.login')}</Subtitle>
+    <RegisterContainer>
+      <RegisterCard>
+        <Title>Create Account</Title>
+        <Subtitle>Sign up to get started</Subtitle>
 
         {error && <ErrorMessage>{error}</ErrorMessage>}
 
-        <FormWrapper<LoginCredentials>
+        <FormWrapper<RegisterCredentials & { confirmPassword: string }>
           onSubmit={handleSubmit}
-          defaultValues={{ username: '', password: '' }}
-          validationSchema={loginSchema}
+          defaultValues={{ username: '', email: '', name: '', password: '', confirmPassword: '' }}
+          validationSchema={registerSchema}
         >
           <FormContainer>
             <FormInput
               name="username"
-              label={t('auth.username')}
-              placeholder={t('auth.username')}
+              label="Username"
+              placeholder="Enter your username"
               autoComplete="username"
+            />
+            <FormInput
+              name="email"
+              type="email"
+              label="Email"
+              placeholder="Enter your email"
+              autoComplete="email"
+            />
+            <FormInput
+              name="name"
+              label="Full Name"
+              placeholder="Enter your full name"
+              autoComplete="name"
             />
             <FormPasswordInput
               name="password"
-              label={t('auth.password')}
-              placeholder={t('auth.password')}
-              autoComplete="current-password"
+              label="Password"
+              placeholder="Enter your password"
+              autoComplete="new-password"
+            />
+            <FormPasswordInput
+              name="confirmPassword"
+              label="Confirm Password"
+              placeholder="Confirm your password"
+              autoComplete="new-password"
             />
             <Button type="submit" isLoading={isLoading}>
-              {t('auth.loginButton')}
+              Create Account
             </Button>
           </FormContainer>
         </FormWrapper>
 
-        <RegisterLink>
-          Don't have an account? <Link to="/register">Sign up</Link>
-        </RegisterLink>
-      </LoginCard>
-    </LoginContainer>
+        <LoginLink>
+          Already have an account? <Link to="/login">Sign in</Link>
+        </LoginLink>
+      </RegisterCard>
+    </RegisterContainer>
   );
 };
