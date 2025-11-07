@@ -1,5 +1,5 @@
 export const DEEP_LINK_CONFIG = {
-  baseUrl: process.env.REACT_APP_BASE_URL || 'https://todo.com',
+  baseUrl: import.meta.env.VITE_APP_BASE_URL || 'https://todo.com',
   
   shareText: {
     todo: 'Check out this todo',
@@ -8,12 +8,12 @@ export const DEEP_LINK_CONFIG = {
 };
 
 export function getBaseUrl(): string {
-  if (process.env.REACT_APP_BASE_URL) {
-    return process.env.REACT_APP_BASE_URL;
+  if (import.meta.env.VITE_APP_BASE_URL) {
+    return import.meta.env.VITE_APP_BASE_URL;
   }
   
   // Development
-  if (process.env.NODE_ENV === 'development') {
+  if (import.meta.env.DEV) {
     return 'http://localhost:3000';
   }
   
